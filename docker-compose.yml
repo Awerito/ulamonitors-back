@@ -21,9 +21,11 @@ services:
       - "8000:8000"
     environment:
       MONGO_URI: mongodb://mongo:27017/ulamonitors
-      # Compose substitutes this from .env (gitignored) or the shell.
-      # The fallback keeps `docker compose up` a one-command boot.
-      SECRET_KEY: ${SECRET_KEY:-classroom-secret-not-for-production}
+      # Compose substitutes these from .env (gitignored) or the shell, and
+      # refuses to start if they are missing. Copy sample.env to .env first.
+      SECRET_KEY: ${SECRET_KEY:?copy sample.env to .env and set it}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:?copy sample.env to .env and set it}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?copy sample.env to .env and set it}
       ENABLE_SCHEDULER: "true"
     depends_on:
       mongo:

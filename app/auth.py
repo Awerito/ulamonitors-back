@@ -149,13 +149,13 @@ async def current_active_user(
 
 async def create_admin_user(db: AsyncDatabase) -> User | None:
     """Ensure the admin user exists, so the API is usable even without the seed."""
-    user = await db.users.find_one({"username": "admin"})
+    user = await db.users.find_one({"username": settings.admin_username})
     if user:
         return None
 
     admin_user = UserInDB(
-        username="admin",
-        hashed_password=get_password_hash("admin"),
+        username=settings.admin_username,
+        hashed_password=get_password_hash(settings.admin_password),
         scopes=list(SCOPES),
         disabled=False,
     )

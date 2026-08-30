@@ -12,7 +12,9 @@ class Settings(BaseSettings):
 
     env: str = "dev"
     mongo_uri: str
-    secret_key: str = "supersecretkey"
+    secret_key: str
+    admin_username: str
+    admin_password: str
     access_token_duration_minutes: int = 480
     cors_origins: str = "*"
     enable_scheduler: bool = False

@@ -12,7 +12,6 @@ from datetime import datetime, timedelta, timezone
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.auth import SCOPES, UserInDB, get_password_hash
 from app.config import settings
 from app.database.indexes import ensure_indexes
 from app.services.measurements import (
@@ -82,17 +81,13 @@ OPEN_REASONS = {
     "out_of_range": "Oxygen reading outside the operating range.",
 }
 
-# (username, full name, scopes); password equals username, deliberate for class.
-USERS = [
-    ("admin", "API Administrator", list(SCOPES)),
-    ("dashboard", "Monitoring Dashboard", ["profile", "read"]),
-    ("tech", "Field Technician", ["profile", "read", "field"]),
-]
-
-
 async def seed(db: AsyncDatabase, *, reset: bool = False) -> None:
-    """Populate the database with sites, sensors, users, interventions and 30
-    days of simulated oxygen history.
+    """Populate the database with sites, sensors, interventions and 30 days
+    of simulated oxygen history.
+
+    Users are NOT touched. They are created through POST /users and must
+    survive --reset, so the accounts handed out to the class are not wiped
+    every night.
 
     Idempotent: if sites already exist it logs and returns. Deterministic
     (random.Random(42)) so every group gets the same data.
@@ -101,7 +96,6 @@ async def seed(db: AsyncDatabase, *, reset: bool = False) -> None:
         for name in (
             "sites",
             "sensors",
-            "users",
             "interventions",
             *[measurements_collection(m) for m in KNOWN_MEDITIONS],
         ):
@@ -183,22 +177,6 @@ async def seed(db: AsyncDatabase, *, reset: bool = False) -> None:
 
     await db.sites.insert_many(sites)
     await db.sensors.insert_many(sensors)
-
-    users = [
-        UserInDB(
-            username=username,
-            full_name=full_name,
-            email=f"{username}@example.local",
-            hashed_password=get_password_hash(username),
-            scopes=scopes,
-            disabled=False,
-        ).model_dump()
-        for username, full_name, scopes in USERS
-    ]
-    # Upsert: the API creates a fallback admin on startup, so this script
-    # must not collide with it on the unique username index.
-    for user in users:
-        await db.users.replace_one({"username": user["username"]}, user, upsert=True)
 
     # 30 days of history, one reading every 30 minutes, shaped per sensor by
     # the story tables above. Hypoxia excursions come from the deterministic
@@ -286,7 +264,7 @@ async def seed(db: AsyncDatabase, *, reset: bool = False) -> None:
     await db.interventions.insert_many(interventions)
 
     logger.info(
-        f"[seed] sites={len(sites)} sensors={len(sensors)} users={len(users)} "
+        f"[seed] sites={len(sites)} sensors={len(sensors)} "
         f"interventions={len(interventions)}"
     )
     for medition in KNOWN_MEDITIONS:
