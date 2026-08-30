@@ -1,0 +1,33 @@
+services:
+  mongo:
+    image: mongo:8.2.12
+    # No credentials: the port is published on loopback only, so mongo is
+    # reachable from the compose network and from this machine, never from
+    # the LAN. If you need to reach it from another machine, you must change
+    # this mapping deliberately — and add authentication first.
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      MONGO_URI: mongodb://mongo:27017/ulamonitors
+      # Compose substitutes this from .env (gitignored) or the shell.
+      # The fallback keeps `docker compose up` a one-command boot.
+      SECRET_KEY: ${SECRET_KEY:-classroom-secret-not-for-production}
+      ENABLE_SCHEDULER: "true"
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+volumes:
+  mongo_data:
