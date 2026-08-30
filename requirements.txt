@@ -1,0 +1,7 @@
+fastapi[standard]
+pymongo>=4.13
+pydantic-settings
+pyjwt
+pwdlib[argon2]
+APScheduler<4     # 4.x is still alpha
+tzdata            # python:slim ships no IANA database; ZoneInfo needs this
