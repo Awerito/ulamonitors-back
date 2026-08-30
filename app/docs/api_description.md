@@ -1,4 +1,5 @@
-Backend for the FDICI11 semester project: the API of a fictional vendor that
+Backend for the Tecnologías Web y Móviles semester project: the API of a
+fictional vendor that
 installs and operates dissolved-oxygen sensors in southern-Chile salmon
 farms. One API, two frontends — a web monitoring dashboard that opens
 interventions when it spots a problem, and a mobile field-technician app
