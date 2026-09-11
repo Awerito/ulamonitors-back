@@ -2,7 +2,6 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pymongo.asynchronous.database import AsyncDatabase
 
 from app.auth import create_admin_user
 from app.config import API_DESCRIPTION, API_TITLE, API_VERSION, settings
@@ -19,16 +18,6 @@ from app.routers.measurements.endpoints import router as measurements_router
 from app.routers.interventions.endpoints import router as interventions_router
 
 
-async def on_ready(db: AsyncDatabase) -> None:
-    """Startup hook: indexes, then the fallback admin user.
-
-    Demo data is not created here. It comes from scripts/seed.py, a one-time
-    script run on demand.
-    """
-    await ensure_indexes(db)
-    await create_admin_user(db)
-
-
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     """
@@ -37,8 +26,10 @@ async def lifespan(_: FastAPI):
     if settings.env.startswith("dev"):
         logger.warning("Running in development mode!")
 
-    # Open MongoDB connection
-    await connect(on_ready=on_ready)
+    db = await connect()
+    await ensure_indexes(db)
+    # Demo data is not created here: it comes from scripts/seed.py.
+    await create_admin_user(db)
 
     # Start scheduler (opt-in via ENABLE_SCHEDULER)
     if settings.enable_scheduler:

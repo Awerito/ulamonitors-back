@@ -1,8 +1,7 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Security, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from pymongo.asynchronous.database import AsyncDatabase
 
 from app.auth import (
     Token,
@@ -11,15 +10,12 @@ from app.auth import (
     UserInDB,
     authenticate_user,
     create_access_token,
-    current_active_user,
     get_password_hash,
     get_user,
 )
-from app.database.mongo import get_db
+from app.deps import AdminUser, DbDep, ProfileUser
 
 router = APIRouter(tags=["Users and Authentication"])
-
-DbDep = Annotated[AsyncDatabase, Depends(get_db)]
 
 
 @router.post("/token", response_model=Token)
@@ -54,7 +50,7 @@ async def login(
 
 @router.get("/users/me", response_model=User)
 async def read_users_me(
-    current_user: Annotated[User, Security(current_active_user, scopes=["profile"])],
+    current_user: ProfileUser,
 ) -> User:
     """Return the authenticated user's profile."""
     return current_user
@@ -63,7 +59,7 @@ async def read_users_me(
 @router.post("/users", response_model=User, status_code=status.HTTP_201_CREATED)
 async def create_user(
     user: UserCreate,
-    _: Annotated[User, Security(current_active_user, scopes=["admin"])],
+    _: AdminUser,
     db: DbDep,
 ) -> User:
     """Create a new API user. Requires the admin scope."""
@@ -79,7 +75,7 @@ async def create_user(
 
 @router.get("/users", response_model=list[User])
 async def list_users(
-    _: Annotated[User, Security(current_active_user, scopes=["admin"])],
+    _: AdminUser,
     db: DbDep,
 ) -> list[User]:
     """List all API users. Requires the admin scope."""

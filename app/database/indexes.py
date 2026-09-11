@@ -1,6 +1,5 @@
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.services.measurements import KNOWN_MEDITIONS, measurements_collection
 from app.utils.logger import logger
 
 
@@ -16,10 +15,6 @@ async def ensure_indexes(db: AsyncDatabase) -> None:
     await db.interventions.create_index([("site_id", 1), ("created_at", -1)])
     await db.interventions.create_index([("status", 1), ("created_at", -1)])
     await db.users.create_index("username", unique=True)
-    # One collection per medition: looping KNOWN_MEDITIONS means a new
-    # medition gets its measurement indexes for free.
-    for medition in KNOWN_MEDITIONS:
-        coll = db[measurements_collection(medition)]
-        await coll.create_index([("sensor_id", 1), ("timestamp", -1)])
-        await coll.create_index([("site_id", 1), ("timestamp", -1)])
-    logger.info(f"[indexes] ensured meditions={len(KNOWN_MEDITIONS)}")
+    await db.measurements.create_index([("sensor_id", 1), ("timestamp", -1)])
+    await db.measurements.create_index([("site_id", 1), ("timestamp", -1)])
+    logger.info("[indexes] ensured")

@@ -1,17 +1,13 @@
 from datetime import datetime, timezone
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Security, status
-from pymongo.asynchronous.database import AsyncDatabase
+from fastapi import APIRouter, HTTPException, Query, status
 
-from app.auth import User, current_active_user
-from app.database.mongo import get_db
+from app.deps import DbDep, FieldUser, ReadUser
 from app.schemas.common import localize, paginated
 from app.schemas.interventions import InterventionClose, InterventionCreate
 
 router = APIRouter(tags=["Interventions"])
-
-DbDep = Annotated[AsyncDatabase, Depends(get_db)]
 
 INTERVENTION_PROJECTION = {"_id": 0}
 
@@ -26,7 +22,7 @@ async def list_interventions(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     *,
-    _: Annotated[User, Security(current_active_user, scopes=["read"])],
+    _: ReadUser,
     db: DbDep,
 ) -> dict:
     """List interventions, newest first; ?status=open is the pending work."""
@@ -53,7 +49,7 @@ async def list_interventions(
 @router.post("/interventions", status_code=status.HTTP_201_CREATED)
 async def create_intervention(
     body: InterventionCreate,
-    current_user: Annotated[User, Security(current_active_user, scopes=["read"])],
+    current_user: ReadUser,
     db: DbDep,
 ) -> dict:
     """Open an intervention. opened_by comes from the token, not the body.
@@ -97,7 +93,7 @@ async def create_intervention(
 async def close_intervention(
     intervention_id: int,
     body: InterventionClose,
-    current_user: Annotated[User, Security(current_active_user, scopes=["field"])],
+    current_user: FieldUser,
     db: DbDep,
 ) -> dict:
     """Close an intervention with its outcome. closed_by comes from the token.

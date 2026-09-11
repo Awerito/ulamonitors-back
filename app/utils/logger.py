@@ -4,17 +4,8 @@ import sys
 LOG_FORMAT = "[%(asctime)s] [%(levelname)s] %(name)s: %(message)s"
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
+logging.basicConfig(
+    format=LOG_FORMAT, datefmt=DATE_FORMAT, level="INFO", stream=sys.stdout
+)
 
-def setup_logger() -> logging.Logger:
-    logger = logging.getLogger("app")
-    if not logger.handlers:
-        handler = logging.StreamHandler(sys.stdout)
-        formatter = logging.Formatter(LOG_FORMAT, DATE_FORMAT)
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-        logger.setLevel("INFO")
-        logger.propagate = False
-    return logger
-
-
-logger = setup_logger()
+logger = logging.getLogger("app")

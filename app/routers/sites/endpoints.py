@@ -1,19 +1,14 @@
 import re
 from datetime import datetime, timezone
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Security, status
-from pymongo.asynchronous.database import AsyncDatabase
+from fastapi import APIRouter, HTTPException, Query, status
 
-from app.auth import User, current_active_user
-from app.database.mongo import get_db
+from app.deps import DbDep, FieldUser, ReadUser
 from app.schemas.common import localize, paginated
 from app.schemas.sites import SiteCreate, SiteUpdate
 from app.services.measurements import SENSOR_PROJECTION, serialize_sensor
 
 router = APIRouter(tags=["Sites"])
-
-DbDep = Annotated[AsyncDatabase, Depends(get_db)]
 
 SITE_PROJECTION = {"_id": 0}
 
@@ -28,7 +23,7 @@ async def list_sites(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     *,
-    _: Annotated[User, Security(current_active_user, scopes=["read"])],
+    _: ReadUser,
     db: DbDep,
 ) -> dict:
     """List sites with optional name search and area/active filters."""
@@ -58,7 +53,7 @@ async def list_sites(
 @router.get("/sites/{site_id}")
 async def get_site(
     site_id: int,
-    _: Annotated[User, Security(current_active_user, scopes=["read"])],
+    _: ReadUser,
     db: DbDep,
 ) -> dict:
     """Site detail with its sensors, each carrying its derived status."""
@@ -77,7 +72,7 @@ async def get_site(
 @router.post("/sites", status_code=status.HTTP_201_CREATED)
 async def create_site(
     body: SiteCreate,
-    _: Annotated[User, Security(current_active_user, scopes=["field"])],
+    _: FieldUser,
     db: DbDep,
 ) -> dict:
     """Register a site. Requires the field scope."""
@@ -101,7 +96,7 @@ async def create_site(
 async def update_site(
     site_id: int,
     body: SiteUpdate,
-    _: Annotated[User, Security(current_active_user, scopes=["field"])],
+    _: FieldUser,
     db: DbDep,
 ) -> dict:
     """Partially update a site. Requires the field scope."""

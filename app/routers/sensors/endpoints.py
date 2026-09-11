@@ -1,18 +1,14 @@
 from datetime import datetime, timezone
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Security, status
-from pymongo.asynchronous.database import AsyncDatabase
+from fastapi import APIRouter, HTTPException, Query, status
 
-from app.auth import User, current_active_user
-from app.database.mongo import get_db
+from app.deps import DbDep, FieldUser, ReadUser
 from app.schemas.common import paginated
-from app.schemas.sensors import SensorCreate, SensorUpdate
+from app.schemas.sensors import Position, SensorCreate, SensorUpdate
 from app.services.measurements import SENSOR_PROJECTION, serialize_sensor
 
 router = APIRouter(tags=["Sensors"])
-
-DbDep = Annotated[AsyncDatabase, Depends(get_db)]
 
 
 @router.get("/sensors")
@@ -21,11 +17,11 @@ async def list_sensors(
     status_: Annotated[
         Literal["ok", "out_of_range", "no_data"] | None, Query(alias="status")
     ] = None,
-    position: Literal["jaula", "ponton"] | None = None,
+    position: Position | None = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     *,
-    _: Annotated[User, Security(current_active_user, scopes=["read"])],
+    _: ReadUser,
     db: DbDep,
 ) -> dict:
     """List sensors with their derived status; ?status= is the dashboard's
@@ -53,7 +49,7 @@ async def list_sensors(
 @router.get("/sensors/{sensor_id}")
 async def get_sensor(
     sensor_id: int,
-    _: Annotated[User, Security(current_active_user, scopes=["read"])],
+    _: ReadUser,
     db: DbDep,
 ) -> dict:
     """Sensor detail with its derived status."""
@@ -66,7 +62,7 @@ async def get_sensor(
 @router.post("/sensors", status_code=status.HTTP_201_CREATED)
 async def create_sensor(
     body: SensorCreate,
-    _: Annotated[User, Security(current_active_user, scopes=["field"])],
+    _: FieldUser,
     db: DbDep,
 ) -> dict:
     """Register a sensor on a site. Requires the field scope."""
@@ -92,7 +88,7 @@ async def create_sensor(
 async def update_sensor(
     sensor_id: int,
     body: SensorUpdate,
-    _: Annotated[User, Security(current_active_user, scopes=["field"])],
+    _: FieldUser,
     db: DbDep,
 ) -> dict:
     """Configure a sensor: depth, position, range, transmitting. Requires the

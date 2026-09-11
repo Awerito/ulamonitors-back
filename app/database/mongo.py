@@ -1,5 +1,3 @@
-from typing import Awaitable, Callable
-
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -16,8 +14,8 @@ from app.utils.logger import logger
 _client: AsyncMongoClient | None = None
 
 
-async def connect(on_ready: Callable[[AsyncDatabase], Awaitable[None]]) -> None:
-    """Open the MongoDB client, ping the server, and run the startup hook."""
+async def connect() -> AsyncDatabase:
+    """Open the MongoDB client, ping the server, and return the database."""
     global _client
     # tz_aware=True so every datetime read back is aware UTC; the timezone
     # contract (app/utils/timezone.py) then converts explicitly at the edges.
@@ -26,7 +24,7 @@ async def connect(on_ready: Callable[[AsyncDatabase], Awaitable[None]]) -> None:
     await db.command("ping")
     info = await _client.server_info()
     logger.info(f"[mongo] connected version={info.get('version', 'unknown')}")
-    await on_ready(db)
+    return db
 
 
 async def disconnect() -> None:

@@ -8,19 +8,16 @@ import argparse
 import asyncio
 import random
 from datetime import datetime, timedelta, timezone
+from typing import get_args
 
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.config import settings
 from app.database.indexes import ensure_indexes
-from app.services.measurements import (
-    KNOWN_MEDITIONS,
-    measurement_doc,
-    measurements_collection,
-    sensor_status,
-)
-from app.services.simulation import generate_reading, saturation_for
+from app.schemas.interventions import Outcome
+from app.services.measurements import measurement_doc, sensor_status
+from app.services.simulation import generate_reading
 from app.utils.logger import logger
 
 BATCH_SIZE = 5000
@@ -59,7 +56,7 @@ AREAS = ["Zona Norte", "Zona Centro", "Zona Sur"]
 # Two pontón depths per site, cycling across the canonical depths.
 PONTON_DEPTHS = [(0.5, 15.0), (5.0, 10.0), (0.5, 10.0), (5.0, 15.0)]
 
-INTERVENTION_OUTCOMES = ["back_online", "replaced", "reconfigured", "no_fault_found"]
+INTERVENTION_OUTCOMES = get_args(Outcome)
 INTERVENTION_REASONS = [
     "Intermittent readings reported by the dashboard.",
     "Oxygen values drifting against the field probe.",
@@ -81,6 +78,7 @@ OPEN_REASONS = {
     "out_of_range": "Oxygen reading outside the operating range.",
 }
 
+
 async def seed(db: AsyncDatabase, *, reset: bool = False) -> None:
     """Populate the database with sites, sensors, interventions and 30 days
     of simulated oxygen history.
@@ -93,12 +91,7 @@ async def seed(db: AsyncDatabase, *, reset: bool = False) -> None:
     (random.Random(42)) so every group gets the same data.
     """
     if reset:
-        for name in (
-            "sites",
-            "sensors",
-            "interventions",
-            *[measurements_collection(m) for m in KNOWN_MEDITIONS],
-        ):
+        for name in ("sites", "sensors", "interventions", "measurements"):
             await db.drop_collection(name)
         logger.info("[seed] collections dropped")
 
@@ -155,7 +148,6 @@ async def seed(db: AsyncDatabase, *, reset: bool = False) -> None:
                 {
                     "id": sensor_id,
                     "site_id": site["id"],
-                    "medition": "oxygen",
                     "sensor_name": name,
                     "position": position,
                     "depth": depth,
@@ -206,10 +198,10 @@ async def seed(db: AsyncDatabase, *, reset: bool = False) -> None:
             batch.append(measurement_doc(sensor, values=values, ts_utc=ts))
             last_reading[sensor["id"]] = {"value": values["oxygen"], "at": ts}
             if len(batch) >= BATCH_SIZE:
-                await db[measurements_collection("oxygen")].insert_many(batch)
+                await db.measurements.insert_many(batch)
                 batch = []
     if batch:
-        await db[measurements_collection("oxygen")].insert_many(batch)
+        await db.measurements.insert_many(batch)
 
     for sensor in sensors:
         sensor["last_reading"] = last_reading[sensor["id"]]
@@ -267,11 +259,8 @@ async def seed(db: AsyncDatabase, *, reset: bool = False) -> None:
         f"[seed] sites={len(sites)} sensors={len(sensors)} "
         f"interventions={len(interventions)}"
     )
-    for medition in KNOWN_MEDITIONS:
-        count = await db[measurements_collection(medition)].count_documents({})
-        logger.info(
-            f"[seed] collection={measurements_collection(medition)} docs={count}"
-        )
+    measurements = await db.measurements.count_documents({})
+    logger.info(f"[seed] measurements={measurements}")
     by_status: dict[str, list[str]] = {}
     for sensor in sensors:
         by_status.setdefault(sensor_status(sensor, now=now), []).append(

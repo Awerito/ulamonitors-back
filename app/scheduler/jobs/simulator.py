@@ -2,7 +2,7 @@ import random
 from datetime import datetime, timezone
 
 from app.database.mongo import get_db
-from app.services.measurements import measurement_doc, measurements_collection
+from app.services.measurements import measurement_doc
 from app.services.simulation import generate_reading
 from app.utils.logger import logger
 
@@ -22,8 +22,9 @@ async def simulate_readings() -> None:
     now = datetime.now(timezone.utc)
     for sensor in sensors:
         values = generate_reading(sensor, now, _rng)
-        doc = measurement_doc(sensor, values=values, ts_utc=now)
-        await db[measurements_collection(sensor["medition"])].insert_one(doc)
+        await db.measurements.insert_one(
+            measurement_doc(sensor, values=values, ts_utc=now)
+        )
         await db.sensors.update_one(
             {"id": sensor["id"]},
             {"$set": {"last_reading": {"value": values["oxygen"], "at": now}}},
